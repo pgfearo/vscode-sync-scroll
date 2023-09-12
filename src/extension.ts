@@ -4,8 +4,10 @@ import { ModeState, AllStates } from './states'
 
 export function activate(context: vscode.ExtensionContext) {
 	let scrollingTask: NodeJS.Timeout
+	let scrollingTaskFinal: NodeJS.Timeout
+	let isFinalScrolling = false;
 	let scrollingEditor: vscode.TextEditor | null
-	let correspondingLinesHighlight :vscode.TextEditorDecorationType | undefined
+	let correspondingLinesHighlight: vscode.TextEditorDecorationType | undefined
 	const scrolledEditorsQueue: Set<vscode.TextEditor> = new Set()
 	const offsetByEditors: Map<vscode.TextEditor, number> = new Map()
 	const reset = () => {
@@ -26,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerTextEditorCommand('syncScroll.jumpToNextPanelCorrespondingPosition', (textEditor) => {
 			const selection = textEditor.selection
 			const textEditors = vscode.window.visibleTextEditors
-			.filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
+				.filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
 			const nextTextEditor = textEditors[(textEditors.indexOf(textEditor) + 1) % textEditors.length]
 			const offset = offsetByEditors.get(nextTextEditor)
 			const correspondingStartPosition = calculatePosition(selection.start, offset, textEditor, nextTextEditor)
@@ -53,6 +55,28 @@ export function activate(context: vscode.ExtensionContext) {
 			reset()
 		}),
 		vscode.window.onDidChangeTextEditorVisibleRanges(({ textEditor, visibleRanges }) => {
+			if (true) {
+				if (scrollingTaskFinal) {
+					clearTimeout(scrollingTaskFinal);
+				}
+				if (!isFinalScrolling) {
+					isFinalScrolling = true;
+					scrollingTaskFinal = setTimeout(() => {
+						vscode.window.visibleTextEditors
+							.filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
+							.forEach(scrolledEditor => {
+								scrolledEditorsQueue.add(scrolledEditor)
+								if (textEditor.visibleRanges[0].start !== scrolledEditor.visibleRanges[0].start) {
+									scrolledEditor.revealRange(
+										calculateRange(visibleRanges[0], offsetByEditors.get(scrolledEditor), textEditor, scrolledEditor),
+										vscode.TextEditorRevealType.AtTop,
+									)
+								}
+							})
+					}, 100)
+					setTimeout(() => isFinalScrolling = false, 0)
+				}
+			}
 			if (!AllStates.areVisible || modeState.isOff() || textEditor.viewColumn === undefined || textEditor.document.uri.scheme === 'output') {
 				return
 			}
@@ -85,7 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
 							vscode.TextEditorRevealType.AtTop,
 						)
 					})
-			}, 0)
+			}, 5)
 		}),
 		vscode.window.onDidChangeTextEditorSelection(({ selections, textEditor }) => {
 			if (!AllStates.areVisible || modeState.isOff() || textEditor.viewColumn === undefined || textEditor.document.uri.scheme === 'output') {
@@ -107,4 +131,4 @@ export function activate(context: vscode.ExtensionContext) {
 	AllStates.init(checkSplitPanels())
 }
 
-export function deactivate() {}
+export function deactivate() { }
