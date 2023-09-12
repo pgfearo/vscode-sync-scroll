@@ -30,6 +30,27 @@ export const setContext= (context: vscode.ExtensionContext) => {
     modeState = new ModeState(context)
 }
 
+export const handleDidChangeVisibleEditors = (textEditors: vscode.TextEditor[]) => {
+    AllStates.areVisible = checkSplitPanels(textEditors)
+    reset()
+}
+
+export const handleDidChangeEditoSelect = (event: vscode.TextEditorSelectionChangeEvent) => {
+    const { selections, textEditor } = event;
+    if (!AllStates.areVisible || modeState.isOff() || textEditor.viewColumn === undefined || textEditor.document.uri.scheme === 'output') {
+        return
+    }
+    correspondingLinesHighlight?.dispose()
+    setCorrespondingLinesHighlight(vscode.window.createTextEditorDecorationType({ backgroundColor: new vscode.ThemeColor('editor.inactiveSelectionBackground') }))
+    vscode.window.visibleTextEditors
+        .filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
+        .forEach((scrolledEditor) => {
+            scrolledEditor.setDecorations(
+                correspondingLinesHighlight!,
+                selections.map(selection => calculateRange(selection, offsetByEditors.get(scrolledEditor))),
+            )
+        })
+};
 
 export const handleScroll = (event: vscode.TextEditorVisibleRangesChangeEvent): any => {
     const {textEditor, visibleRanges} = event;
