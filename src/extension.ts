@@ -11,31 +11,6 @@ export function activate(context: vscode.ExtensionContext) {
 		modeState.registerCommand(() => {
 			reset()
 		}),
-		vscode.commands.registerTextEditorCommand('syncScroll.jumpToNextPanelCorrespondingPosition', (textEditor) => {
-			const selection = textEditor.selection
-			const textEditors = vscode.window.visibleTextEditors
-				.filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
-			const nextTextEditor = textEditors[(textEditors.indexOf(textEditor) + 1) % textEditors.length]
-			const offset = offsetByEditors.get(nextTextEditor)
-			const correspondingStartPosition = calculatePosition(selection.start, offset, textEditor, nextTextEditor)
-			const correspondingPosition = new vscode.Range(correspondingStartPosition, correspondingStartPosition)
-			const correspondingRange = calculateRange(selection, offset)
-			vscode.window.showTextDocument(nextTextEditor.document, {
-				viewColumn: nextTextEditor.viewColumn,
-				selection: selection.isEmpty ? correspondingPosition : correspondingRange
-			})
-		}),
-		vscode.commands.registerTextEditorCommand('syncScroll.copyToAllCorrespondingPositions', (textEditor) => {
-			vscode.window.visibleTextEditors
-				.filter(editor => editor !== textEditor && editor.document.uri.scheme !== 'output')
-				.forEach(scrolledEditor => {
-					scrolledEditor.edit(editBuilder =>
-						textEditor.selections.map(selection =>
-							editBuilder.replace(
-								calculateRange(selection, offsetByEditors.get(scrolledEditor)),
-								textEditor.document.getText(selection.isEmpty ? wholeLine(selection) : selection) + '\n')))
-				})
-		}),
 		vscode.window.onDidChangeVisibleTextEditors(textEditors => {
 			AllStates.areVisible = checkSplitPanels(textEditors)
 			reset()
